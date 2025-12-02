@@ -1,58 +1,98 @@
-from transport.client import Client
-from transport.truck import Truck
-from transport.train import Train
-from transport.company import TransportCompany
+class Client:
+    def __init__(self, name: str, weight: float, vip: bool = False):
+        self.name = name
+        self.weight = weight
+        self.vip = vip
 
-def main():
-    company = TransportCompany("ООО Транспорт")
+    def __repr__(self):
+        return f"Client({self.name}, {self.weight}, {'VIP' if self.vip else 'обычный'})"
 
-    while True:
-        print("\n=== Главное меню ===")
-        print("1. Добавить клиента")
-        print("2. Добавить транспорт")
-        print("3. Показать список транспорта")
-        print("4. Оптимизировать распределение грузов")
-        print("5. Выход")
 
-        choice = input("Выберите действие: ")
+class Transport:
+    _id_counter = 1
 
-        if choice == "1":
-            name = input("Введите имя клиента: ")
-            weight = float(input("Введите вес груза (т): "))
-            vip = input("VIP клиент? (y/n): ").lower() == "y"
-            client = Client(name, weight, vip)
-            company.add_client(client)
-            print("Клиент добавлен!")
+    def __init__(self, capacity: float):
+        self.id = Transport._id_counter
+        Transport._id_counter += 1
+        self.capacity = capacity
+        self.load = 0
+        self.clients = []
 
-        elif choice == "2":
-            t_type = input("Введите тип транспорта (truck/train): ").lower()
-            capacity = float(input("Введите грузоподъемность (т): "))
-            if t_type == "truck":
-                color = input("Введите цвет грузовика: ")
-                company.add_vehicle(Truck(capacity, color))
-                print("Грузовик добавлен!")
-            elif t_type == "train":
-                cars = int(input("Введите количество вагонов: "))
-                company.add_vehicle(Train(capacity, cars))
-                print("Поезд добавлен!")
-            else:
-                print("Неизвестный тип транспорта")
+    def can_take(self, client: Client) -> bool:
+        return self.load + client.weight <= self.capacity
 
-        elif choice == "3":
-            print("\nСписок транспорта:")
-            for v in company.list_vehicles():
-                print(v)
+    def add_client(self, client: Client):
+        if self.can_take(client):
+            self.clients.append(client)
+            self.load += client.weight
+            return True
+        return False
 
-        elif choice == "4":
-            company.optimize_cargo_distribution()
-            print("Грузы распределены!")
+    def __repr__(self):
+        return f"Transport(ID={self.id}, cap={self.capacity}, load={self.load})"
 
-        elif choice == "5":
-            print("Выход из программы...")
-            break
 
-        else:
-            print("Неверный выбор! Попробуйте снова.")
+class Truck(Transport):
+    def __init__(self, capacity: float):
+        super().__init__(capacity)
 
+
+class Train(Transport):
+    def __init__(self, capacity: float):
+        super().__init__(capacity)
+
+
+class TransportCompany:
+    def __init__(self, name: str):
+        self.name = name
+        self.clients = []
+        self.transports = []
+
+    def add_client(self, client: Client):
+        self.clients.append(client)
+
+    def add_transport(self, transport: Transport):
+        self.transports.append(transport)
+
+    def distribute(self):
+        results = []
+        # VIP клиенты распределяются первыми
+        sorted_clients = sorted(self.clients, key=lambda c: not c.vip)
+        for client in sorted_clients:
+            placed = False
+            for transport in self.transports:
+                if transport.add_client(client):
+                    results.append({
+                        "client": client.name,
+                        "weight": client.weight,
+                        "vip": client.vip,
+                        "transport_id": transport.id
+                    })
+                    placed = True
+                    break
+            if not placed:
+                results.append({
+                    "client": client.name,
+                    "weight": client.weight,
+                    "vip": client.vip,
+                    "transport_id": None
+                })
+        return results
+
+
+# Пример использования при запуске напрямую
 if __name__ == "__main__":
-    main()
+    company = TransportCompany("Rhythora")
+    c1 = Client("Иван", 120, vip=True)
+    c2 = Client("Петр", 80)
+    t1 = Truck(200)
+    t2 = Train(500)
+
+    company.add_client(c1)
+    company.add_client(c2)
+    company.add_transport(t1)
+    company.add_transport(t2)
+
+    result = company.distribute()
+    for r in result:
+        print(r)
